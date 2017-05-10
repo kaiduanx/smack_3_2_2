@@ -66,6 +66,7 @@ import org.jivesoftware.smackx.packet.MUCInitialPresence;
 import org.jivesoftware.smackx.packet.MUCOwner;
 import org.jivesoftware.smackx.packet.MUCUser;
 import org.jivesoftware.smackx.packet.MUCUser.Status;
+import org.jivesoftware.smackx.packet.MiscExtension;
 
 /**
  * A MultiUserChat is a conversation that takes place among many users in a virtual
@@ -300,6 +301,10 @@ public class MultiUserChat {
         return room;
     }
 
+    public void create(String nickname) throws XMPPException {
+        create(nickname, null);
+    }
+
     /**
      * Creates the room according to some default configuration, assign the requesting user
      * as the room owner, and add the owner to the room but not allow anyone else to enter
@@ -320,7 +325,7 @@ public class MultiUserChat {
      *          (e.g. room already exists; user already joined to an existant room or
      *          405 error if the user is not allowed to create the room)
      */
-    public synchronized void create(String nickname) throws XMPPException {
+    public synchronized void create(String nickname, Map<String, String> miscParams) throws XMPPException {
         if (nickname == null || nickname.equals("")) {
             throw new IllegalArgumentException("Nickname must not be null or blank.");
         }
@@ -333,6 +338,32 @@ public class MultiUserChat {
         // and signal support for MUC. The owner will be automatically logged into the room.
         Presence joinPresence = new Presence(Presence.Type.available);
         joinPresence.setTo(room + "/" + nickname);
+
+        MiscExtension misc = new MiscExtension();
+
+        if (miscParams != null) {
+            String event = miscParams.get("event");
+            String traceId = miscParams.get("traceid");
+            String rootNodeId = miscParams.get("rootnodeid");
+            String childNodeId = miscParams.get("childnodeid");
+            String host = miscParams.get("host");
+            String roomToken = miscParams.get("roomtoken");
+            String roomTokenExpiryTime = miscParams.get("roomtokenexpirytime");
+
+            if(event != null && !event.equals(""))
+                misc.setEvent(event);
+            if(traceId != null && !traceId.equals(""))
+                misc.setTraceId(traceId);
+            if(rootNodeId != null && !rootNodeId.equals(""))
+                misc.setRootNodeId(rootNodeId);
+            if(childNodeId != null && !childNodeId.equals(""))
+                misc.setChildNodeId(childNodeId);
+            if(roomToken != null && !roomToken.equals(""))
+                misc.setRoomToken(roomToken);
+            if(roomTokenExpiryTime != null && !roomTokenExpiryTime.equals(""))
+                misc.setRoomTokenExpiryTime(roomTokenExpiryTime);
+        }
+
         // Indicate the the client supports MUC
         joinPresence.addExtension(new MUCInitialPresence());
         // Invoke presence interceptors so that extra information can be dynamically added
@@ -346,6 +377,9 @@ public class MultiUserChat {
                 new FromMatchesFilter(room + "/" + nickname),
                 new PacketTypeFilter(Presence.class));
         PacketCollector response = connection.createPacketCollector(responseFilter);
+
+        joinPresence.addMisc(misc);
+
         // Send create & join packet.
         connection.sendPacket(joinPresence);
         // Wait up to a certain number of seconds for a reply.
@@ -367,10 +401,15 @@ public class MultiUserChat {
 
         // Look for confirmation of room creation from the server
         MUCUser mucUser = getMUCUserExtension(presence);
-        if (mucUser != null
-                && mucUser.getStatus().contains(Status.ROOM_CREATED_201)) {
-            // Room was created and the user has joined the room
-            return;
+        Set<Status> mucStatus = mucUser.getStatus();
+        if (mucUser != null && mucStatus != null) {
+            if (mucStatus.contains(Status.ROOM_CREATED_201) ||
+                mucStatus.contains(Status.ROOM_CREATED_210) ||
+                mucStatus.contains(Status.PRESENCE_TO_SELF_100) ||
+                mucStatus.contains(Status.PRESENCE_TO_SELF_110)) {
+                // Room was created and the user has joined the room
+                return;
+            }
         }
         // We need to leave the room since it seems that the room already existed
         leave();
@@ -393,7 +432,7 @@ public class MultiUserChat {
      *      409 error can occur if someone is already in the group chat with the same nickname.
      */
     public void join(String nickname) throws XMPPException {
-        join(nickname, null, null, SmackConfiguration.getPacketReplyTimeout());
+        join(nickname, null, null, SmackConfiguration.getPacketReplyTimeout(), null);
     }
 
     /**
@@ -416,7 +455,11 @@ public class MultiUserChat {
      *      409 error can occur if someone is already in the group chat with the same nickname.
      */
     public void join(String nickname, String password) throws XMPPException {
-        join(nickname, password, null, SmackConfiguration.getPacketReplyTimeout());
+        join(nickname, password, null, SmackConfiguration.getPacketReplyTimeout(), null);
+    }
+
+    public void join(String nickname, String password, Map<String, String> miscMap) throws XMPPException {
+        join(nickname, password, null, SmackConfiguration.getPacketReplyTimeout(), miscMap);
     }
 
     /**
@@ -448,7 +491,8 @@ public class MultiUserChat {
         String nickname,
         String password,
         DiscussionHistory history,
-        long timeout)
+        long timeout,
+        Map<String, String> miscMap)
         throws XMPPException {
         if (nickname == null || nickname.equals("")) {
             throw new IllegalArgumentException("Nickname must not be null or blank.");
@@ -486,6 +530,34 @@ public class MultiUserChat {
         Presence presence;
         try {
             response = connection.createPacketCollector(responseFilter);
+
+            MiscExtension misc = new MiscExtension();
+
+            if (miscMap != null) {
+                String event = miscMap.get("event");
+                String traceId = miscMap.get("traceid");
+                String rootNodeId = miscMap.get("rootnodeid");
+                String childNodeId = miscMap.get("childnodeid");
+                String host = miscMap.get("host");
+                String roomToken = miscMap.get("roomtoken");
+                String roomTokenExpiryTime = miscMap.get("roomtokenexpirytime");
+
+                if(event != null && !event.equals(""))
+                    misc.setEvent(event);
+                if(traceId != null && !traceId.equals(""))
+                    misc.setTraceId(traceId);
+                if(rootNodeId != null && !rootNodeId.equals(""))
+                    misc.setRootNodeId(rootNodeId);
+                if(childNodeId != null && !childNodeId.equals(""))
+                    misc.setChildNodeId(childNodeId);
+                if(roomToken != null && !roomToken.equals(""))
+                    misc.setRoomToken(roomToken);
+                if(roomTokenExpiryTime != null && !roomTokenExpiryTime.equals(""))
+                    misc.setRoomTokenExpiryTime(roomTokenExpiryTime);
+            }
+
+            joinPresence.addMisc(misc);
+
             // Send join packet.
             connection.sendPacket(joinPresence);
             // Wait up to a certain number of seconds for a reply.
@@ -2402,7 +2474,7 @@ public class MultiUserChat {
         /**
          * Creates a new InvitationsMonitor that will monitor invitations received
          * on a given connection.
-         * 
+         *
          * @param connection the connection to monitor for possible room invitations
          */
         private InvitationsMonitor(Connection connection) {
@@ -2474,7 +2546,7 @@ public class MultiUserChat {
         }
 
         public void connectionClosedOnError(Exception e) {
-            // ignore              
+            // ignore
         }
 
         public void reconnectingIn(int seconds) {
@@ -2516,7 +2588,7 @@ public class MultiUserChat {
             };
             connection.addPacketListener(invitationPacketListener, invitationFilter);
             // Add a listener to detect when the connection gets closed in order to
-            // cancel/release this monitor 
+            // cancel/release this monitor
             connection.addConnectionListener(this);
         }
 

@@ -29,6 +29,7 @@ import org.jivesoftware.smack.provider.ProviderManager;
 import org.jivesoftware.smack.sasl.SASLMechanism.Failure;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
+import org.jivesoftware.smackx.packet.MiscExtension;
 
 import java.beans.PropertyDescriptor;
 import java.io.ByteArrayInputStream;
@@ -73,13 +74,13 @@ public class PacketParserUtils {
         message.setFrom(parser.getAttributeValue("", "from"));
         message.setType(Message.Type.fromString(parser.getAttributeValue("", "type")));
         String language = getLanguageAttribute(parser);
-        
+
         // determine message's default language
         String defaultLanguage = null;
         if (language != null && !"".equals(language.trim())) {
             message.setLanguage(language);
             defaultLanguage = language;
-        } 
+        }
         else {
             defaultLanguage = Packet.getDefaultLanguage();
         }
@@ -114,7 +115,7 @@ public class PacketParserUtils {
                     }
 
                     String body = parseContent(parser);
-                    
+
                     if (message.getBody(xmlLang) == null) {
                         message.addBody(xmlLang, body);
                     }
@@ -157,7 +158,7 @@ public class PacketParserUtils {
 
     /**
      * Returns the content of a tag as string regardless of any tags included.
-     * 
+     *
      * @param parser the XML pull parser
      * @return the content of a tag as string
      * @throws XmlPullParserException if parser encounters invalid XML
@@ -311,6 +312,18 @@ public class PacketParserUtils {
                 // Otherwise, see if there is a registered provider for
                 // this element name and namespace.
                 else {
+                    if (elementName.equals("data") && (iqPacket != null)) {
+                        MiscExtension misc = new MiscExtension();
+                        misc.setEvent(parser.getAttributeValue("", "event"));
+                        misc.setHost(parser.getAttributeValue("", "host"));
+                        misc.setTraceId(parser.getAttributeValue("", "traceid"));
+                        misc.setChildNodeId(parser.getAttributeValue("", "childnodeid"));
+                        misc.setRootNodeId(parser.getAttributeValue("", "rootnodeid"));
+                        misc.setRoomToken(parser.getAttributeValue("", "roomtoken"));
+                        misc.setRoomTokenExpiryTime(parser.getAttributeValue("", "roomtokenexpirytime"));
+                        misc.setToRoutingId(parser.getAttributeValue("", "toroutingid"));
+                        iqPacket.addExtension(misc);
+                    }
                     Object provider = ProviderManager.getInstance().getIQProvider(elementName, namespace);
                     if (provider != null) {
                         if (provider instanceof IQProvider) {
@@ -647,7 +660,7 @@ public class PacketParserUtils {
 
     /**
      * Parses SASL authentication error packets.
-     * 
+     *
      * @param parser the XML parser.
      * @return a SASL Failure packet.
      * @throws Exception if an exception occurs while parsing the packet.

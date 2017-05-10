@@ -42,7 +42,7 @@ import org.xmlpull.v1.XmlPullParser;
 
 /**
  * The DelayInformationProvider parses DelayInformation packets.
- * 
+ *
  * @author Gaston Dombiak
  * @author Henning Staib
  */
@@ -68,7 +68,7 @@ public class DelayInformationProvider implements PacketExtensionProvider {
     }
 
     /*
-     * Maps a regular expression for a date format to the date format parser. 
+     * Maps a regular expression for a date format to the date format parser.
      */
     private static Map<String, DateFormat> formats = new HashMap<String, DateFormat>();
     static {
@@ -76,7 +76,7 @@ public class DelayInformationProvider implements PacketExtensionProvider {
         formats.put("^\\d+-\\d+-\\d+T\\d+:\\d+:\\d+\\.\\d+Z$", StringUtils.XEP_0082_UTC_FORMAT);
         formats.put("^\\d+-\\d+-\\d+T\\d+:\\d+:\\d+Z$", XEP_0082_UTC_FORMAT_WITHOUT_MILLIS);
     }
-    
+
     /**
      * Creates a new DeliveryInformationProvider. ProviderManager requires that
      * every PacketExtensionProvider has a public, no-argument constructor
@@ -88,9 +88,9 @@ public class DelayInformationProvider implements PacketExtensionProvider {
         String stampString = (parser.getAttributeValue("", "stamp"));
         Date stamp = null;
         DateFormat format = null;
-        
+
         for (String regexp : formats.keySet()) {
-            if (stampString.matches(regexp)) {
+            if (stampString != null && stampString != "" && stampString.matches(regexp)) {
                 try {
                     format = formats.get(regexp);
                     synchronized (format) {
@@ -100,12 +100,12 @@ public class DelayInformationProvider implements PacketExtensionProvider {
                 catch (ParseException e) {
                     // do nothing, format is still set
                 }
-                
+
                 // break because only one regexp can match
                 break;
             }
         }
-        
+
         /*
          * if date is in XEP-0091 format handle ambiguous dates missing the
          * leading zero in month and day
@@ -114,7 +114,7 @@ public class DelayInformationProvider implements PacketExtensionProvider {
                         && stampString.split("T")[0].length() < 8) {
             stamp = handleDateWithMissingLeadingZeros(stampString);
         }
-        
+
         /*
          * if date could not be parsed but XML is valid, don't shutdown
          * connection by throwing an exception instead set timestamp to current
@@ -123,7 +123,7 @@ public class DelayInformationProvider implements PacketExtensionProvider {
         if (stamp == null) {
             stamp = new Date();
         }
-        
+
         DelayInformation delayInformation = new DelayInformation(stamp);
         delayInformation.setFrom(parser.getAttributeValue("", "from"));
         String reason = parser.nextText();
@@ -135,14 +135,14 @@ public class DelayInformationProvider implements PacketExtensionProvider {
          */
         reason = "".equals(reason) ? null : reason;
         delayInformation.setReason(reason);
-        
+
         return delayInformation;
     }
 
     /**
      * Parses the given date string in different ways and returns the date that
      * lies in the past and/or is nearest to the current date-time.
-     * 
+     *
      * @param stampString date in string representation
      * @return the parsed date
      */
@@ -150,15 +150,15 @@ public class DelayInformationProvider implements PacketExtensionProvider {
         Calendar now = new GregorianCalendar();
         Calendar xep91 = null;
         Calendar xep91Fallback = null;
-        
+
         xep91 = parseXEP91Date(stampString, DelayInformation.XEP_0091_UTC_FORMAT);
         xep91Fallback = parseXEP91Date(stampString, XEP_0091_UTC_FALLBACK_FORMAT);
-        
+
         List<Calendar> dates = filterDatesBefore(now, xep91, xep91Fallback);
-        
+
         if (!dates.isEmpty()) {
             return determineNearestDate(now, dates).getTime();
-        } 
+        }
         return null;
     }
 
@@ -173,10 +173,10 @@ public class DelayInformationProvider implements PacketExtensionProvider {
             return null;
         }
     }
-    
+
     private List<Calendar> filterDatesBefore(Calendar now, Calendar... dates) {
         List<Calendar> result = new ArrayList<Calendar>();
-        
+
         for (Calendar calendar : dates) {
             if (calendar != null && calendar.before(now)) {
                 result.add(calendar);
@@ -187,7 +187,7 @@ public class DelayInformationProvider implements PacketExtensionProvider {
     }
 
     private Calendar determineNearestDate(final Calendar now, List<Calendar> dates) {
-        
+
         Collections.sort(dates, new Comparator<Calendar>() {
 
             public int compare(Calendar o1, Calendar o2) {
@@ -195,9 +195,9 @@ public class DelayInformationProvider implements PacketExtensionProvider {
                 Long diff2 = new Long(now.getTimeInMillis() - o2.getTimeInMillis());
                 return diff1.compareTo(diff2);
             }
-            
+
         });
-        
+
         return dates.get(0);
     }
 

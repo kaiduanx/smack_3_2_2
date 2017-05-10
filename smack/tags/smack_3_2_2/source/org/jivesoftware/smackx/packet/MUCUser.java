@@ -549,8 +549,10 @@ public class MUCUser implements PacketExtension {
 
         private static final Map<Integer, Status> statusMap = new HashMap<Integer, Status>(8);
 
+        public static final Status PRESENCE_TO_SELF_100 = Status.create(100);
         public static final Status PRESENCE_TO_SELF_110 = Status.create(110);
         public static final Status ROOM_CREATED_201 = Status.create(201);
+        public static final Status ROOM_CREATED_210 = Status.create(210);
         public static final Status BANNED_301 = Status.create(301);
         public static final Status NEW_NICKNAME_303 = Status.create(303);
         public static final Status KICKED_307 = Status.create(307);
